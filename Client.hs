@@ -1,3 +1,3 @@
 
 
-main = putStrLn "hola mundo =)"
+main = putStrLn "hola jesus =)"
