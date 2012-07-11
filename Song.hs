@@ -1,5 +1,5 @@
-
---module Song (Song, fromFile) where
+{-# LANGUAGE RecordWildCards #-}
+module Song (Song, fromFile) where
 
 import Genres
 import qualified Data.ByteString as BS
@@ -14,6 +14,7 @@ import Data.Char
 import qualified Data.Map as DM
 
 data Song = Song{
+--    path :: String,
     title :: String,
     artist :: String,
     album :: String,
@@ -23,41 +24,35 @@ data Song = Song{
     genre :: String
 } deriving Show
 
-
-main = fromFile "2 Unlimited - Get Ready for This.mp3"
-
-fromFile :: String -> IO Song
+fromFile :: String -> IO (Maybe Song)
 fromFile f = do
-    metadata <- liftM (\x -> BS.drop (BS.length x - 128) x) $ BS.readFile f
-    let result = parse songMeta "" $ US.decode $ BS.unpack metadata
+    putStrLn $ "Cargando " ++ f ++ "... \n"
+    metadata <- liftM truncate $ BS.readFile f `catch` (\_ -> return BS.empty)
+    let result = parse (songMeta f) "" $ US.decode $ BS.unpack metadata
     case result of
-        Left e -> error $ foldr1 (++) $ map messageString $ errorMessages e
-        Right s -> return s
+        Left e -> return Nothing
+        Right s -> return $ Just s
+        where
+            truncate x = BS.drop (BS.length x - 128) x
 
-songMeta :: GenParser Char st Song
-songMeta = do
+songMeta :: String -> GenParser Char st Song
+songMeta path = do
     string "TAG"
     title <- takeString 30
     artist <- takeString 30
     album <- takeString 30
-    year <- takeString 4
-    comment <- takeString 28
+    year <- read `fmap` takeString 4
+    c <- takeString 28
     hasTrack <- anyChar
-    track <- anyChar
-    genre <- anyChar
-    return Song {
-        title = title,
-        artist = artist,
-        album = album,
-        year = read year,
-        genre = case DM.lookup (fromIntegral $ ord genre) genres of
+    t <- anyChar
+    g <- anyChar
+    let genre = case DM.lookup (fromIntegral $ ord g) genres of
             Just c -> c
-            Nothing -> "Unknown",
-
+            Nothing -> "Unknown"
         -- http://en.wikipedia.org/wiki/ID3#cite_note-storage-2
-        comment = comment ++ if hasTrack /= '\0' then (takeWhile (\x -> x /= '\0') [hasTrack, track]) else "",
-        track = if hasTrack == '\0' then ord track else 0
-    }
+        comment = c ++ if hasTrack /= '\0' then (takeWhile (\x -> x /= '\0') [hasTrack, t]) else ""
+        track = if hasTrack == '\0' then ord t else 0
+    return Song { .. }
 
 -- |Interpretar los siguientes @maxLength@ bytes como un string terminado en \0
 takeString :: Int -> GenParser Char st String
