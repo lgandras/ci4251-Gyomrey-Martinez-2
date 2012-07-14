@@ -1,19 +1,49 @@
-
+import Transport
 import Song
 import System.FilePath.Find
 import Control.Monad
 import Control.Arrow
+import Control.Monad.State
+import Control.Monad.Writer
+import qualified Data.Sequence as DS
+import qualified Data.Set as S
 import Control.Monad.Trans
 import Data.Maybe
+import System.Environment(getArgs)
 import qualified Data.Vector as DV
 
+data NodeState = NS { neighbors :: S.Set String, --Lista de nodos vecinos.
+					  visited :: S.Set String  --Conjunto de nodos visitados.
+					 }
+type Node = WriterT (DS.Seq String) (StateT NodeState IO) ()
 
 main :: IO ()
 main = do
-    fileNames <- fmap (take 10) $ find always (extension ==? ".mp3") "/media/sf_Andras/Music"
-    songs <- makeSongs fileNames
-    putStrLn $ concat $ liftM show songs
+	args <- getArgs
+	case checkArgs args of 
+	True -> do fileNames <- fmap (take 10) $ find always (extension ==? ".mp3") "/media/sf_Andras/Music"
+	           songs <- makeSongs fileNames
+			   contents <- readFile (args !! 1)
+			   let nghbrs = S.fromList $ lines contents in 
+	           putStrLn $ concat $ liftM show songs
+	False -> putStrLn $ "Error introduciendo los argumentos. A continuacion, las instrucciones: " ++ format
 
+	
+	
+format :: String
+format = "\nnodo -p <puerto> -c <conocidos> -b <biblioteca> -i <ID del nodo>\n\nParámetros:\n\n* puerto: número de puerto del servicio de biblioteca musical distribuida.\n* conocidos: trayectoria relativa o absoluta de un archivo de texto plano que especificará el nombre de host o la dirección IP de cada nodo conocido por este nodo, uno por línea.\n* biblioteca trayectoria relativa o absoluta del archivo XSPF que especificará la biblioteca local del usuario.\n* ID del nodo cadena de caracteres alfanuméricos que no puede contener espacios que identifica al nodo en la red."
+
+
+--| Se verifica que los argumentos sean validos.
+checkArgs :: [String] -> Bool
+checkArgs [] = False
+checkArgs args = case length args of
+					8 -> "-p" `elem` args && "-c" `elem` args && "-b" `elem` args && "-i" `elem` args
+					--7 -> "-p" `elem` args && "-n" `elem` args && "-d" `elem` args && "-l" `elem` args
+					_ -> False
+
+loadNeighbors :: IO String -> [String]
+loadNeighbors h = lines <<= hGetContents
 makeSongs :: [FilePath] -> IO [(Song, FilePath)]
 makeSongs [] = do return []
 makeSongs fileNames = do

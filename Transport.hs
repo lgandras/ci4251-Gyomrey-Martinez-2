@@ -1,5 +1,6 @@
 module Transport(Request(..), Response(..), writeData, readData) where
 
+import qualified Data.Set as S
 import qualified Data.Sequence as DS
 import qualified Codec.Binary.UTF8.String as US
 import qualified Data.ByteString.Lazy as DBL
@@ -10,10 +11,10 @@ import Data.Int
 import Data.Set
 import Song
 
-data Request = ReqReach (Set String) --Nodos alcanzables.
-			  | ReqDownload (Set String) Int --Descargar cancion indexada.
-			  | ReqConsult (Set String) (Maybe (Char, String)) --Consulta: Nothing -> Consultar toda la red. Just ([a|t], pattern)
-			  | ReqLog --Obtener el log del nodo.
+data Request = ReqReach (S.Set String)--Nodos alcanzables.
+			  | ReqDownload Int--Descargar cancion indexada.
+			  | ReqConsult (Maybe (Char, String, )) (S.Set String)--Consulta: Nothing -> Consultar toda la red --> Just ([a|t], pattern)
+			  | ReqLog (S.Set String) --Obtener el log del nodo.
               deriving (Show)
 
 instance DB.Binary Request where
