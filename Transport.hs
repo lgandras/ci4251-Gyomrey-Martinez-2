@@ -11,21 +11,21 @@ import Data.Int
 import Data.Set
 import Song
 
-data Request = ReqReach (S.Set String)--Nodos alcanzables.
-			  | ReqDownload Int--Descargar cancion indexada.
-			  | ReqConsult (Maybe (Char, String, )) (S.Set String)--Consulta: Nothing -> Consultar toda la red --> Just ([a|t], pattern)
-			  | ReqLog (S.Set String) --Obtener el log del nodo.
+data Request = ReqReach (S.Set String) --Nodos alcanzables.
+			  | ReqDownload Int --Descargar cancion indexada.
+			  | ReqConsult (S.Set String) (Maybe (Char, String)) --Consulta: Nothing -> Consultar toda la red --> Just ([a|t], pattern)
+			  | ReqLog --Obtener el log del nodo.
               deriving (Show)
 
 instance DB.Binary Request where
-     put (ReqReach x)      = DB.put (0 :: DB.Word8) >> DB.put x
-     put (ReqDownload x y) = DB.put (1 :: DB.Word8) >> DB.put x >> DB.put y
-     put (ReqConsult x y)  = DB.put (2 :: DB.Word8) >> DB.put x >> DB.put y
-     put ReqLog          = DB.put (3 :: DB.Word8)
+     put (ReqReach x)     = DB.put (0 :: DB.Word8) >> DB.put x
+     put (ReqDownload x)  = DB.put (1 :: DB.Word8) >> DB.put x
+     put (ReqConsult x y) = DB.put (2 :: DB.Word8) >> DB.put x >> DB.put y
+     put ReqLog           = DB.put (3 :: DB.Word8)
      get = do tag <- DB.getWord8
               case tag of
                   0 -> ReqReach <$> DB.get
-                  1 -> ReqDownload <$> DB.get <*> DB.get
+                  1 -> ReqDownload <$> DB.get
                   2 -> ReqConsult <$> DB.get <*> DB.get
                   3 -> return ReqLog
 
@@ -44,17 +44,14 @@ instance DB.Binary Response where
                   1 -> RepConsult <$> DB.get
                   2 -> RepLog <$> DB.get
 
---writeRequest :: t -> SI.Handle -> IO ()
 writeData dat handle = do
     let bs = DB.encode dat
     let i = DB.encode $ ((fromIntegral (DBL.length bs)) :: Int32) 
     DBL.hPut handle $ DBL.concat [i, bs]
-    putStrLn $ show $ DBL.concat [i, bs]
+    SI.hFlush handle
 
---readRequest :: SI.Handle -> IO t
 readData handle = do
-    bi <- sequence $ take 4 $ repeat (SI.hGetChar handle)
-    let i = fromIntegral $ ((DB.decode . DBL.pack . US.encode) bi :: Int32)
-    bs <- sequence $ take i $ repeat (SI.hGetChar handle)
-    putStrLn $ (show i) ++ (show bs)
-    return $ (DB.decode . DBL.pack . US.encode) bs
+    bi <- DBL.hGet handle 4
+    let i = fromIntegral (DB.decode bi :: Int32)
+    bs <- DBL.hGet handle i
+    return $ DB.decode bs

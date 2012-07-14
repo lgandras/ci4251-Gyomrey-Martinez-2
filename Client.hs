@@ -62,12 +62,12 @@ prompt = do
 summaryLog :: DS.Seq String -> IO ()
 summaryLog seq = mapM_ (putStrLn . ("* " ++)) (toList seq)
 
-handleA :: ?? -> Maybe Response
-handleA = --do st <- get;
+--handleA :: ?? -> Maybe Response
+--handleA = --do st <- get;
 		  --send $ ReqReach _
 		  --r <- receive
 		  --case r of
 		  --RepReach str -> Just str
 		  --_ -> Nothing
 
-handleC = --do 
+--handleC = --do 
