@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, ScopedTypeVariables #-}
 module Song (Song, fromFile) where
 
 import Genres
@@ -10,8 +10,11 @@ import Text.Parsec.Char
 import Text.Parsec.Prim
 import Text.Parsec.Error
 import Control.Monad
+import qualified Control.Exception as E
 import Data.Char
 import qualified Data.Map as DM
+import Control.Distributed.Process
+import Data.Binary as DB
 
 data Song = Song{
 --    path :: String,
@@ -22,12 +25,31 @@ data Song = Song{
     comment :: String,
     track :: Int,
     genre :: String
-} deriving Show
+} deriving (Show)
+
+instance Binary Song where
+    put x = DB.put (title x) >>
+            DB.put (artist x) >>
+            DB.put (album x) >>
+            DB.put (year x) >>
+            DB.put (comment x) >>
+            DB.put (track x) >>
+            DB.put (genre x)
+    get = do
+        title <- get
+        artist <- get
+        album <- get
+        year <- get
+        comment <- get
+        track <- get
+        genre <- get
+        return Song { .. }
+        
 
 fromFile :: String -> IO (Maybe Song)
 fromFile f = do
     putStrLn $ "Cargando " ++ f ++ "... \n"
-    metadata <- liftM truncate $ BS.readFile f `catch` (\_ -> return BS.empty)
+    metadata <- liftM truncate $ E.catch (BS.readFile f) (\(_ :: E.SomeException) -> return BS.empty)
     let result = parse (songMeta f) "" $ US.decode $ BS.unpack metadata
     case result of
         Left e -> return Nothing
